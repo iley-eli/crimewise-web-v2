@@ -59,10 +59,12 @@ router.post(
       const organization_id = orgFilter.hasFilter
         ? orgFilter.organizationId
         : null;
+      const normalizedBatchId =
+        batch_id === "" || batch_id === undefined ? null : batch_id;
 
       const result =
-        await db.sql`INSERT INTO classes (name, batch_id, organization_id) VALUES (${name}, ${batch_id}, ${organization_id}) RETURNING id`;
-      res.json({ id: result[0].id, name, batch_id, organization_id });
+        await db.sql`INSERT INTO classes (name, batch_id, organization_id) VALUES (${name}, ${normalizedBatchId}, ${organization_id}) RETURNING id`;
+      res.json({ id: result[0].id, name, batch_id: normalizedBatchId, organization_id });
     } catch (err) {
       console.log("[CLASSES][POST] Error:", err.message);
       return res.status(500).json({ error: err.message });
@@ -81,14 +83,16 @@ router.put(
       const { name, batch_id } = req.body;
       const id = req.params.id;
       const orgFilter = req.getOrgFilter();
+      const normalizedBatchId =
+        batch_id === "" || batch_id === undefined ? null : batch_id;
 
       let result;
       if (orgFilter.hasFilter) {
         result =
-          await db.sql`UPDATE classes SET name = ${name}, batch_id = ${batch_id} WHERE id = ${id} AND organization_id = ${orgFilter.organizationId}`;
+          await db.sql`UPDATE classes SET name = ${name}, batch_id = ${normalizedBatchId} WHERE id = ${id} AND organization_id = ${orgFilter.organizationId}`;
       } else {
         result =
-          await db.sql`UPDATE classes SET name = ${name}, batch_id = ${batch_id} WHERE id = ${id}`;
+          await db.sql`UPDATE classes SET name = ${name}, batch_id = ${normalizedBatchId} WHERE id = ${id}`;
       }
 
       if (result.rowsAffected === 0) {
@@ -166,14 +170,16 @@ router.post(
       const created = [];
       // Process each class insert one by one
       for (const cls of classes) {
+        const normalizedBatchId =
+          cls.batch_id === "" || cls.batch_id === undefined ? null : cls.batch_id;
         console.log("Creating class:", cls);
         const result =
-          await db.sql`INSERT INTO classes (name, batch_id, organization_id) VALUES (${cls.name}, ${cls.batch_id}, ${organization_id}) RETURNING id`;
+          await db.sql`INSERT INTO classes (name, batch_id, organization_id) VALUES (${cls.name}, ${normalizedBatchId}, ${organization_id}) RETURNING id`;
         console.log("Class created with ID:", result[0].id);
         created.push({
           id: result[0].id,
           name: cls.name,
-          batch_id: cls.batch_id,
+          batch_id: normalizedBatchId,
           organization_id,
         });
       }
@@ -225,7 +231,9 @@ router.patch("/bulk", async (req, res) => {
         // Convert ID to number if it's a string
         const id = typeof cls.id === "string" ? parseInt(cls.id, 10) : cls.id;
         const batch_id =
-          typeof cls.batch_id === "string"
+          cls.batch_id === "" || cls.batch_id === undefined
+            ? null
+            : typeof cls.batch_id === "string"
             ? parseInt(cls.batch_id, 10)
             : cls.batch_id;
 
@@ -342,7 +350,12 @@ router.delete("/bulk", async (req, res) => {
 });
 
 // POST endpoint for bulk deletion - alternative to DELETE /bulk
-router.post("/bulk-delete", async (req, res) => {
+router.post(
+  "/bulk-delete",
+  authenticateToken,
+  requireRole("admin", "super_admin"),
+  addOrganizationFilter(),
+  async (req, res) => {
   try {
     // Get direct access to the request body for debugging
     console.log("[CLASSES][BULK-DELETE] Raw request body:", req.body);
@@ -369,6 +382,7 @@ router.post("/bulk-delete", async (req, res) => {
       success: true,
       totalProcessed: ids.length,
       deletedCount: 0,
+      deletedStudentCount: 0,
       notFound: [],
       invalidIds: [],
       constraintErrors: [],
@@ -398,12 +412,37 @@ router.post("/bulk-delete", async (req, res) => {
 
         console.log(`Deleting class with ID: ${classId} (${typeof classId})`);
 
-        const result = await db.sql`DELETE FROM classes WHERE id = ${classId}`;
+        const orgFilter = req.getOrgFilter();
+        const classRows = orgFilter.hasFilter
+          ? await db.sql`SELECT id FROM classes WHERE id = ${classId} AND organization_id = ${orgFilter.organizationId}`
+          : await db.sql`SELECT id FROM classes WHERE id = ${classId}`;
+
+        if (classRows.length === 0) {
+          results.notFound.push(classId);
+          continue;
+        }
+
+        const students = orgFilter.hasFilter
+          ? await db.sql`SELECT id FROM users WHERE class_id = ${classId} AND role = 'student' AND organization_id = ${orgFilter.organizationId}`
+          : await db.sql`SELECT id FROM users WHERE class_id = ${classId} AND role = 'student'`;
+
+        await db.sql`DELETE FROM class_students WHERE class_id = ${classId}`;
+        await db.sql`DELETE FROM class_instructor WHERE class_id = ${classId}`;
+        await db.sql`UPDATE exams SET class_id = NULL WHERE class_id = ${classId}`;
+
+        for (const student of students) {
+          await db.sql`DELETE FROM users WHERE id = ${student.id} AND role = 'student'`;
+          results.deletedStudentCount++;
+        }
+
+        const result = await db.sql`DELETE FROM classes WHERE id = ${classId} RETURNING id`;
         console.log("Delete operation result:", result);
 
-        // Check for successful deletion based on changes property
-        // SQLite Cloud driver returns changes property instead of rowsAffected
-        if (result && (result.changes > 0 || result.rowsAffected > 0)) {
+        const deleted =
+          (result && typeof result === "object" && !Array.isArray(result) && (result.changes > 0 || result.rowsAffected > 0)) ||
+          (Array.isArray(result) && result.length > 0);
+
+        if (deleted) {
           results.deletedCount++;
           console.log(`Successfully deleted class with ID: ${classId}`);
         } else {
@@ -415,8 +454,10 @@ router.post("/bulk-delete", async (req, res) => {
 
         // Check for foreign key constraint error
         if (
-          deleteErr.message &&
-          deleteErr.message.includes("FOREIGN KEY constraint failed")
+          deleteErr.code === "23503" ||
+          (deleteErr.message &&
+            (deleteErr.message.includes("FOREIGN KEY constraint failed") ||
+              deleteErr.message.includes("foreign key constraint")))
         ) {
           results.constraintErrors.push({
             id,
@@ -445,6 +486,7 @@ router.post("/bulk-delete", async (req, res) => {
       .status(500)
       .json({ error: err.message || "An unexpected error occurred" });
   }
-});
+  }
+);
 
 module.exports = router;

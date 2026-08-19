@@ -48,6 +48,7 @@ const InstructorsPage = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importedRows, setImportedRows] = useState<{ name: string; email: string; instructorId: string; password: string }[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc");
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'instructorId' | null>(null);
@@ -267,6 +268,7 @@ const InstructorsPage = () => {
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImportError(null);
+    setImportWarnings([]);
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -382,16 +384,19 @@ const InstructorsPage = () => {
               instructorId,
               password
             };
-          })
-          .filter(r => r.name && r.email);
+          });
         
         console.log("Parsed instructor rows:", rows);
         console.log("Sample row data:", rows[0]); // Show first row for debugging
         
+        const missingCount = rows.filter(r => !r.name || !r.email).length;
         if (rows.length === 0) {
-          setImportError("No valid instructor data found in file.");
+          setImportError("No instructor data found in file.");
         } else {
           setImportedRows(rows);
+          if (missingCount > 0) {
+            setImportWarnings([`${missingCount} row${missingCount > 1 ? "s" : ""} have missing instructor data and will be imported with blank values.`]);
+          }
         }
       } catch (err) {
         setImportError("Failed to parse file. Please upload a valid Excel or CSV file.");
@@ -415,6 +420,7 @@ const InstructorsPage = () => {
         toast({ title: "Import Success", description: `${importedRows.length} instructors imported.` });
         setIsImportModalOpen(false);
         setImportedRows([]);
+        setImportWarnings([]);
         handleReload();
       } else {
         const error = await res.json();
@@ -968,7 +974,12 @@ const InstructorsPage = () => {
         <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
           <DialogContent className="max-w-[800px] w-full">
             <DialogHeader>
-              <DialogTitle>Import Instructors</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <span>Import Instructors</span>
+                {importWarnings.length > 0 && (
+                  <span className="text-sm font-semibold text-red-600">{importWarnings[0]}</span>
+                )}
+              </DialogTitle>
               <DialogDescription>Upload an Excel or CSV file with columns: ID, Name, Email, Instructor ID (matches export format).</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
@@ -992,7 +1003,7 @@ const InstructorsPage = () => {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportedRows([]); setImportError(null); }}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportedRows([]); setImportError(null); setImportWarnings([]); }}>Cancel</Button>
               <Button onClick={handleImportSubmit} disabled={importedRows.length === 0}>Import</Button>
             </DialogFooter>
           </DialogContent>

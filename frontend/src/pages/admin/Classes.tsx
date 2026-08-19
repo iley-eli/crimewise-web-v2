@@ -68,6 +68,7 @@ const ClassesPage = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importedRows, setImportedRows] = useState<{ name: string; batch_id: string }[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc");
   const [sortBy, setSortBy] = useState<'name' | null>(null);
@@ -227,6 +228,7 @@ const ClassesPage = () => {
   // Handle import file
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImportError(null);
+    setImportWarnings([]);
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -242,19 +244,24 @@ const ClassesPage = () => {
         const batchIdx = header.findIndex(h => h.includes("batch"));
         const rows = (json as any[][])
           .slice(1)
-          .map(r => ({
-            name: (r[nameIdx] || "").toString().trim(),
-            batch_id: (() => {
-              const batchName = (r[batchIdx] || "").toString().trim();
-              const batch = batches.find((b: any) => b.name === batchName);
-              return batch ? batch.id.toString() : "";
-            })()
-          }))
-          .filter(r => r.name && r.batch_id);
+          .map(r => {
+            const name = (r[nameIdx] || "").toString().trim();
+            const batchName = (r[batchIdx] || "").toString().trim();
+            const batch = batches.find((b: any) => b.name?.toLowerCase() === batchName.toLowerCase());
+            return {
+              name,
+              batch_id: batch ? batch.id.toString() : null
+            };
+          })
+          .filter(r => r.name);
+        const missingBatchCount = rows.filter(r => !r.batch_id).length;
         if (rows.length === 0) {
-          setImportError("No valid class names and batch matches found in file.");
+          setImportError("No valid class names found in file.");
         } else {
           setImportedRows(rows);
+          if (missingBatchCount > 0) {
+            setImportWarnings([`${missingBatchCount} row${missingBatchCount > 1 ? "s" : ""} have missing or unmatched batch data and will be imported with blank values.`]);
+          }
         }
       } catch (err) {
         setImportError("Failed to parse file. Please upload a valid Excel or CSV file.");
@@ -276,6 +283,7 @@ const ClassesPage = () => {
         toast({ title: "Import Success", description: `${importedRows.length} classes imported.` });
         setIsImportModalOpen(false);
         setImportedRows([]);
+        setImportWarnings([]);
         handleReload();
       } else {
         const error = await res.json();
@@ -321,7 +329,7 @@ const ClassesPage = () => {
 
       const res = await fetch(`${API_BASE_URL}/api/classes/bulk-delete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ ids: idsToDelete })
       });
 
@@ -345,7 +353,7 @@ const ClassesPage = () => {
         else if (result.deletedCount > 0) {
           toast({
             title: "Classes Deleted",
-            description: `${result.deletedCount} of ${selectedIds.length} class(es) deleted successfully.`
+            description: `${result.deletedCount} class(es) and ${result.deletedStudentCount || 0} student account(s) deleted successfully.`
           });
           setIsDeleteConfirmOpen(false);
           clearSelection();
@@ -657,12 +665,26 @@ const ClassesPage = () => {
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Classes</DialogTitle>
-            <DialogDescription>Are you sure you want to delete {selectedIds.length} selected class(es)? This action cannot be undone.</DialogDescription>
+            <DialogTitle className="text-xl font-bold text-red-700">
+              Permanently Delete Classes?
+            </DialogTitle>
+            <DialogDescription>
+              <span className="mt-2 block border-2 border-red-600 bg-red-50 p-4 text-red-900">
+                <strong className="block text-base uppercase tracking-wide">
+                  Warning: This action cannot be undone.
+                </strong>
+                <span className="mt-2 block">
+                  You are about to permanently delete {selectedIds.length} selected class(es) and every student account assigned to them. Their accounts and access will be permanently removed. Exams will be kept but detached from the class.
+                </span>
+                <strong className="mt-2 block">
+                  Only continue if you are absolutely sure.
+                </strong>
+              </span>
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteSubmit}>Delete</Button>
+            <Button variant="destructive" className="font-bold" onClick={handleDeleteSubmit}>Yes, Permanently Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -671,7 +693,12 @@ const ClassesPage = () => {
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Import Classes</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <span>Import Classes</span>
+              {importWarnings.length > 0 && (
+                <span className="text-sm font-semibold text-red-600">{importWarnings[0]}</span>
+              )}
+            </DialogTitle>
             <DialogDescription>Upload an Excel or CSV file with columns for class name and batch name.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
@@ -695,7 +722,7 @@ const ClassesPage = () => {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportedRows([]); setImportError(null); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportedRows([]); setImportError(null); setImportWarnings([]); }}>Cancel</Button>
             <Button onClick={handleImportSubmit} disabled={importedRows.length === 0}>Import</Button>
           </DialogFooter>
         </DialogContent>

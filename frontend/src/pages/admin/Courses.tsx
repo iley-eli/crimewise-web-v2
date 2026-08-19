@@ -66,6 +66,7 @@ const CoursesPage = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importedRows, setImportedRows] = useState<{ name: string }[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc");
   const [sortBy, setSortBy] = useState<'name' | null>(null);
@@ -263,6 +264,7 @@ const CoursesPage = () => {
         toast({ title: "Import Success", description: `${importedRows.length} courses imported.` });
         setIsImportModalOpen(false);
         setImportedRows([]);
+        setImportWarnings([]);
         handleReload();
       } else {
         const error = await res.json();
@@ -609,7 +611,12 @@ const CoursesPage = () => {
         <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Import Courses</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <span>Import Courses</span>
+                {importWarnings.length > 0 && (
+                  <span className="text-sm font-semibold text-red-600">{importWarnings[0]}</span>
+                )}
+              </DialogTitle>
               <DialogDescription>Upload an Excel or CSV file with a column for course names.</DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
@@ -633,7 +640,7 @@ const CoursesPage = () => {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportedRows([]); setImportError(null); }}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setIsImportModalOpen(false); setImportedRows([]); setImportError(null); setImportWarnings([]); }}>Cancel</Button>
               <Button onClick={handleImportSubmit} disabled={importedRows.length === 0}>Import</Button>
             </DialogFooter>
           </DialogContent>

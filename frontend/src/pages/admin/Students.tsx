@@ -103,6 +103,7 @@ const StudentsPage = () => {
     { name: string; email: string; studentId: string; password: string; class_id: string; course_id: string }[]
   >([]);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [sortBy, setSortBy] = useState<"name" | "email" | null>(null);
@@ -454,6 +455,7 @@ const StudentsPage = () => {
   // Handle import file
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImportError(null);
+    setImportWarnings([]);
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -524,15 +526,18 @@ const StudentsPage = () => {
               class_id,
               course_id
             };
-          })
-          .filter((r) => r.name && r.email);
+          });
 
         console.log("Parsed student rows with class/course mapping:", rows);
         
+        const missingCount = rows.filter((r) => !r.name || !r.email || !r.class_id || !r.course_id).length;
         if (rows.length === 0) {
-          setImportError("No valid student data found in file.");
+          setImportError("No student data found in file.");
         } else {
           setImportedRows(rows);
+          if (missingCount > 0) {
+            setImportWarnings([`${missingCount} row${missingCount > 1 ? "s" : ""} have missing student data and will be imported with blank values.`]);
+          }
         }
       } catch (err) {
         setImportError(
@@ -567,6 +572,7 @@ const StudentsPage = () => {
         });
         setIsImportModalOpen(false);
         setImportedRows([]);
+        setImportWarnings([]);
         handleReload();
       } else {
         const error = await res.json();
@@ -1429,7 +1435,12 @@ const StudentsPage = () => {
         <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Import Students</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <span>Import Students</span>
+                {importWarnings.length > 0 && (
+                  <span className="text-sm font-semibold text-red-600">{importWarnings[0]}</span>
+                )}
+              </DialogTitle>
               <DialogDescription>
                 Upload an Excel or CSV file with columns: Name, Email, Student ID (optional), Class (optional), Course (optional).
               </DialogDescription>
@@ -1450,7 +1461,12 @@ const StudentsPage = () => {
               <div className="flex gap-2 justify-end">
                 <Button
                   variant="outline"
-                  onClick={() => setIsImportModalOpen(false)}
+                  onClick={() => {
+                    setIsImportModalOpen(false);
+                    setImportedRows([]);
+                    setImportError(null);
+                    setImportWarnings([]);
+                  }}
                 >
                   Cancel
                 </Button>

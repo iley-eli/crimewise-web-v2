@@ -19,15 +19,20 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Pencil, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -80,6 +85,68 @@ type GroupedInstructorCourseRelation = {
   instructor: string;
   courses: { name: string; id: number; relationId: number }[];
   relationIds: number[];
+};
+
+type SearchableOption = {
+  value: string;
+  label: string;
+};
+
+const SearchableSelect = ({
+  options,
+  value,
+  onChange,
+  placeholder,
+  searchPlaceholder,
+}: {
+  options: SearchableOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  searchPlaceholder: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={selectedOption ? "truncate" : "truncate text-muted-foreground"}>
+            {selectedOption?.label || placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>No matching options found.</CommandEmpty>
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={`${option.label} ${option.value}`}
+                onSelect={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
 const RelationsPage = () => {
@@ -906,60 +973,26 @@ const RelationsPage = () => {
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
                             <Label htmlFor="class">Class</Label>
-                            <Select
+                            <SearchableSelect
                               value={classInstructorForm.class}
-                              onValueChange={(value) =>
-                                handleSelectChange(
-                                  "classInstructor",
-                                  "class",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a class" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(editMode === "classInstructor" && selectedRelation
-                                  ? classes.filter(c => String(c.id) === String(selectedRelation.id))
-                                  : classes
-                                ).map((cls) => (
-                                  <SelectItem
-                                    key={cls.id}
-                                    value={String(cls.id)}
-                                  >
-                                    {cls.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(value) => handleSelectChange("classInstructor", "class", value)}
+                              placeholder="Select a class"
+                              searchPlaceholder="Type to search classes..."
+                              options={(editMode === "classInstructor" && selectedRelation
+                                ? classes.filter(c => String(c.id) === String(selectedRelation.id))
+                                : classes
+                              ).map((cls) => ({ value: String(cls.id), label: cls.name }))}
+                            />
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="instructor">Instructor</Label>
-                            <Select
+                            <SearchableSelect
                               value={classInstructorForm.instructor}
-                              onValueChange={(value) =>
-                                handleSelectChange(
-                                  "classInstructor",
-                                  "instructor",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select an instructor" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {instructors.map((instructor) => (
-                                  <SelectItem
-                                    key={instructor.id}
-                                    value={String(instructor.id)}
-                                  >
-                                    {instructor.email}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(value) => handleSelectChange("classInstructor", "instructor", value)}
+                              placeholder="Select an instructor"
+                              searchPlaceholder="Type to search instructors..."
+                              options={instructors.map((instructor) => ({ value: String(instructor.id), label: instructor.email }))}
+                            />
                           </div>
                         </div>
                         <DialogFooter>
@@ -999,30 +1032,13 @@ const RelationsPage = () => {
                       <div className="grid gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="instructor">Instructor</Label>
-                          <Select
+                          <SearchableSelect
                             value={classInstructorForm.instructor}
-                            onValueChange={(value) =>
-                              handleSelectChange(
-                                "classInstructor",
-                                "instructor",
-                                value
-                              )
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select an instructor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {instructors.map((instructor) => (
-                                <SelectItem
-                                  key={instructor.id}
-                                  value={String(instructor.id)}
-                                >
-                                  {instructor.email}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onChange={(value) => handleSelectChange("classInstructor", "instructor", value)}
+                            placeholder="Select an instructor"
+                            searchPlaceholder="Type to search instructors..."
+                            options={instructors.map((instructor) => ({ value: String(instructor.id), label: instructor.email }))}
+                          />
                         </div>
                       </div>
                     </CardContent>
@@ -1152,57 +1168,23 @@ const RelationsPage = () => {
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
                             <Label htmlFor="batch">Batch</Label>
-                            <Select
+                            <SearchableSelect
                               value={batchCourseForm.batch}
-                              onValueChange={(value) =>
-                                handleSelectChange(
-                                  "batchCourse",
-                                  "batch",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a batch" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {batches.map((batch) => (
-                                  <SelectItem
-                                    key={batch.id}
-                                    value={String(batch.id)}
-                                  >
-                                    {batch.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(value) => handleSelectChange("batchCourse", "batch", value)}
+                              placeholder="Select a batch"
+                              searchPlaceholder="Type to search batches..."
+                              options={batches.map((batch) => ({ value: String(batch.id), label: batch.name }))}
+                            />
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="course">Course</Label>
-                            <Select
+                            <SearchableSelect
                               value={batchCourseForm.course}
-                              onValueChange={(value) =>
-                                handleSelectChange(
-                                  "batchCourse",
-                                  "course",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a course" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {courses.map((course) => (
-                                  <SelectItem
-                                    key={course.id}
-                                    value={String(course.id)}
-                                  >
-                                    {course.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(value) => handleSelectChange("batchCourse", "course", value)}
+                              placeholder="Select a course"
+                              searchPlaceholder="Type to search courses..."
+                              options={courses.map((course) => ({ value: String(course.id), label: course.name }))}
+                            />
                           </div>
                         </div>
                         <DialogFooter>
@@ -1238,26 +1220,13 @@ const RelationsPage = () => {
                       <div className="grid gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="course">Course</Label>
-                          <Select
+                          <SearchableSelect
                             value={batchCourseForm.course}
-                            onValueChange={(value) =>
-                              handleSelectChange("batchCourse", "course", value)
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a course" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {courses.map((course) => (
-                                <SelectItem
-                                  key={course.id}
-                                  value={String(course.id)}
-                                >
-                                  {course.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onChange={(value) => handleSelectChange("batchCourse", "course", value)}
+                            placeholder="Select a course"
+                            searchPlaceholder="Type to search courses..."
+                            options={courses.map((course) => ({ value: String(course.id), label: course.name }))}
+                          />
                         </div>
                       </div>
                     </CardContent>
@@ -1388,57 +1357,23 @@ const RelationsPage = () => {
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
                             <Label htmlFor="instructor">Instructor</Label>
-                            <Select
+                            <SearchableSelect
                               value={instructorCourseForm.instructor}
-                              onValueChange={(value) =>
-                                handleSelectChange(
-                                  "instructorCourse",
-                                  "instructor",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select an instructor" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {instructors.map((instructor) => (
-                                  <SelectItem
-                                    key={instructor.id}
-                                    value={String(instructor.id)}
-                                  >
-                                    {instructor.email}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(value) => handleSelectChange("instructorCourse", "instructor", value)}
+                              placeholder="Select an instructor"
+                              searchPlaceholder="Type to search instructors..."
+                              options={instructors.map((instructor) => ({ value: String(instructor.id), label: instructor.email }))}
+                            />
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="course">Course</Label>
-                            <Select
+                            <SearchableSelect
                               value={instructorCourseForm.course}
-                              onValueChange={(value) =>
-                                handleSelectChange(
-                                  "instructorCourse",
-                                  "course",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a course" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {courses.map((course) => (
-                                  <SelectItem
-                                    key={course.id}
-                                    value={String(course.id)}
-                                  >
-                                    {course.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              onChange={(value) => handleSelectChange("instructorCourse", "course", value)}
+                              placeholder="Select a course"
+                              searchPlaceholder="Type to search courses..."
+                              options={courses.map((course) => ({ value: String(course.id), label: course.name }))}
+                            />
                           </div>
                         </div>
                         <DialogFooter>
@@ -1474,30 +1409,13 @@ const RelationsPage = () => {
                       <div className="grid gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="course">Course</Label>
-                          <Select
+                          <SearchableSelect
                             value={instructorCourseForm.course}
-                            onValueChange={(value) =>
-                              handleSelectChange(
-                                "instructorCourse",
-                                "course",
-                                value
-                              )
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a course" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {courses.map((course) => (
-                                <SelectItem
-                                  key={course.id}
-                                  value={String(course.id)}
-                                >
-                                  {course.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onChange={(value) => handleSelectChange("instructorCourse", "course", value)}
+                            placeholder="Select a course"
+                            searchPlaceholder="Type to search courses..."
+                            options={courses.map((course) => ({ value: String(course.id), label: course.name }))}
+                          />
                         </div>
                       </div>
                     </CardContent>

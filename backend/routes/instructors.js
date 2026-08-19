@@ -460,16 +460,18 @@ router.post(
           let result;
           if (orgFilter.hasFilter) {
             result =
-              await db.sql`DELETE FROM users WHERE id = ${instructorId} AND role = 'instructor' AND organization_id = ${orgFilter.organizationId}`;
+              await db.sql`DELETE FROM users WHERE id = ${instructorId} AND role = 'instructor' AND organization_id = ${orgFilter.organizationId} RETURNING id`;
           } else {
             result =
-              await db.sql`DELETE FROM users WHERE id = ${instructorId} AND role = 'instructor'`;
+              await db.sql`DELETE FROM users WHERE id = ${instructorId} AND role = 'instructor' RETURNING id`;
           }
           console.log("Delete operation result:", result);
 
-          // Check for successful deletion based on changes property
-          // SQLite Cloud driver returns changes property instead of rowsAffected
-          if (result && (result.changes > 0 || result.rowsAffected > 0)) {
+          const deleted =
+            (result && typeof result === "object" && !Array.isArray(result) && (result.changes > 0 || result.rowsAffected > 0)) ||
+            (Array.isArray(result) && result.length > 0);
+
+          if (deleted) {
             results.deletedCount++;
             console.log(
               `Successfully deleted instructor with ID: ${instructorId}`

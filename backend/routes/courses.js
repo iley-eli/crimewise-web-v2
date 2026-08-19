@@ -414,12 +414,14 @@ router.post("/bulk-delete", async (req, res) => {
           `Deleting course with ID: ${courseId} (${typeof courseId})`
         );
 
-        const result = await db.sql`DELETE FROM courses WHERE id = ${courseId}`;
+        const result = await db.sql`DELETE FROM courses WHERE id = ${courseId} RETURNING id`;
         console.log("Delete operation result:", result);
 
-        // Check for successful deletion based on changes property
-        // SQLite Cloud driver returns changes property instead of rowsAffected
-        if (result && (result.changes > 0 || result.rowsAffected > 0)) {
+        const deleted =
+          (result && typeof result === "object" && !Array.isArray(result) && (result.changes > 0 || result.rowsAffected > 0)) ||
+          (Array.isArray(result) && result.length > 0);
+
+        if (deleted) {
           results.deletedCount++;
           console.log(`Successfully deleted course with ID: ${courseId}`);
         } else {

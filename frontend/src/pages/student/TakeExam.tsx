@@ -276,10 +276,10 @@ const TakeExam = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenCountdown, setFullscreenCountdown] = useState(0);
   const skipFullscreenEnforcementRef = useRef(false);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const submitNowRef = useRef<() => Promise<void> | null>(null);
   const exitCounterRef = useRef(0); // counts ESC presses or fullscreen exits
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Try to request fullscreen; returns true on success
   const tryRequestFullscreen = async () => {
