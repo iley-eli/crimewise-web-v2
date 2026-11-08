@@ -105,6 +105,7 @@ const StudentsPage = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [sortBy, setSortBy] = useState<"name" | "email" | null>(null);
   const [batches, setBatches] = useState<any[]>([]);
@@ -436,8 +437,9 @@ const StudentsPage = () => {
   };
 
   // Open edit modal and prefill selected rows
-  const openEditModal = () => {
-    const selected = (students || []).filter((s) => selectedIds.includes(s.id));
+  const openEditModal = (ids?: number[]) => {
+    const idsToEdit = ids ?? selectedIds;
+    const selected = (students || []).filter((s) => idsToEdit.includes(s.id));
     setEditRows(
       selected.map((s) => ({
         id: s.id,
@@ -445,7 +447,7 @@ const StudentsPage = () => {
         email: s.email || "",
         studentId: s.student_id || "",
         class_id: s.class_id?.toString() || "",
-        course_id: s.course_id?.toString() || "",
+        course_id: s.course_id?.toString() || "", // Added course_id
         password: s.password || "",
       }))
     );
@@ -602,7 +604,7 @@ const StudentsPage = () => {
             <div className="flex gap-2">
             <Button
               size="sm"
-              onClick={openEditModal}
+              onClick={() => openEditModal()}
               disabled={selectedIds.length === 0}
             >
               <Edit2 className="mr-1 h-4 w-4" /> Edit
@@ -708,24 +710,17 @@ const StudentsPage = () => {
                   <TableHead className="hidden sm:table-cell">Batch</TableHead>
                   <TableHead className="hidden sm:table-cell">Class</TableHead>
                   <TableHead className="hidden sm:table-cell">Course</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="print:hidden">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">
-                      No students found.
-                    </TableCell>
+                    <TableCell colSpan={8} className="text-center">No students found.</TableCell>
                   </TableRow>
                 ) : (
                   paginatedStudents.map((student) => (
-                    <TableRow
-                      key={student.id}
-                      className={
-                        selectedIds.includes(student.id) ? "bg-muted" : ""
-                      }
-                    >
+                    <TableRow key={student.id} className={selectedIds.includes(student.id) ? "bg-muted" : ""}>
                       <TableCell className="hidden sm:table-cell">
                         <input
                           type="checkbox"
@@ -749,10 +744,10 @@ const StudentsPage = () => {
                           student.course_id ||
                           "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="print:hidden">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([student.id]); openEditModal(); }}><Edit2 className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([student.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => openEditModal([student.id])}><Edit2 className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setDeleteIds([student.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1341,8 +1336,8 @@ const StudentsPage = () => {
             <DialogHeader>
               <DialogTitle>Confirm Delete</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete the selected student(s)? This
-                action cannot be undone.
+                Are you sure you want to delete {deleteIds.length} selected
+                student(s)? This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -1361,7 +1356,7 @@ const StudentsPage = () => {
                     console.log('Selected IDs types:', selectedIds.map(id => ({ id, type: typeof id })));
                     
                     // Convert IDs to numbers like other delete operations
-                    const idsToDelete = selectedIds.map(id => Number(id));
+                    const idsToDelete = deleteIds.map(id => Number(id));
                     console.log('IDs after conversion:', idsToDelete);
                     console.log('IDs after conversion types:', idsToDelete.map(id => ({ id, type: typeof id })));
                     

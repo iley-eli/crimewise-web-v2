@@ -69,6 +69,7 @@ const BatchesPage = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc");
   const [sortBy, setSortBy] = useState<'name' | null>(null);
   const [page, setPage] = useState<number>(1);
@@ -163,7 +164,7 @@ const BatchesPage = () => {
     if (printWindow) {
       printWindow.document.write('<html><head><title>Print Batches</title></head><body>');
       printWindow.document.write('<table border="1"><tr><th>Name</th></tr>');
-      rows.forEach(r => printWindow.document.write(`<tr><td>${r.name}</td><td><button onclick="window.postMessage({ type: 'inline-delete', id: ${r.id} }, '*')">Delete</button></td></tr>`));
+      rows.forEach(r => printWindow.document.write(`<tr><td>${r.name}</td></tr>`));
       printWindow.document.write('</table></body></html>');
       printWindow.document.close();
       printWindow.print();
@@ -193,8 +194,9 @@ const BatchesPage = () => {
   };
 
   // Open edit modal and prefill selected rows
-  const openEditModal = () => {
-    const selected = batches.filter(b => selectedIds.includes(b.id));
+  const openEditModal = (ids?: number[]) => {
+    const idsToEdit = ids ?? selectedIds;
+    const selected = batches.filter(b => idsToEdit.includes(b.id));
     setEditRows(selected.map(b => ({ id: b.id, name: b.name })));
     setIsEditModalOpen(true);
   };
@@ -293,8 +295,8 @@ const BatchesPage = () => {
             <Button size="sm" variant="outline" onClick={handleReload}><RefreshCw className="mr-1 h-4 w-4" /> Reload</Button>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={openEditModal} disabled={selectedIds.length === 0}><Edit2 className="mr-1 h-4 w-4" /> Edit</Button>
-            <Button size="sm" variant="destructive" onClick={() => setIsDeleteConfirmOpen(true)} disabled={selectedIds.length === 0}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button>
+            <Button size="sm" onClick={() => openEditModal()} disabled={selectedIds.length === 0}><Edit2 className="mr-1 h-4 w-4" /> Edit</Button>
+            <Button size="sm" variant="destructive" onClick={() => { setDeleteIds(selectedIds); setIsDeleteConfirmOpen(true); }} disabled={selectedIds.length === 0}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleCopy} disabled={selectedIds.length === 0}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
@@ -341,7 +343,7 @@ const BatchesPage = () => {
                       {sortOrder === 'asc' && sortBy === 'name' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                     </Button>
                   </TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="print:hidden">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -356,10 +358,10 @@ const BatchesPage = () => {
                         <input type="checkbox" checked={selectedIds.includes(batch.id)} onChange={() => toggleSelectRow(batch.id)} />
                       </TableCell>
                       <TableCell>{batch.name}</TableCell>
-                      <TableCell>
+                      <TableCell className="print:hidden">
                         <div className="flex gap-2">
-                                      <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([batch.id]); openEditModal(); }}><Edit2 className="h-4 w-4" /></Button>
-                                      <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([batch.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                                      <Button size="sm" variant="ghost" onClick={() => openEditModal([batch.id])}><Edit2 className="h-4 w-4" /></Button>
+                                      <Button size="sm" variant="ghost" onClick={() => { setDeleteIds([batch.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                                     </div>
                       </TableCell>
                     </TableRow>
@@ -565,14 +567,14 @@ const BatchesPage = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete Batch</DialogTitle>
-              <DialogDescription>Are you sure you want to delete {selectedIds.length} selected batch(es)? This action cannot be undone.</DialogDescription>
+              <DialogDescription>Are you sure you want to delete {deleteIds.length} selected batch(es)? This action cannot be undone.</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
               <Button variant="destructive" onClick={async () => {
                 try {
                   // Using the new POST endpoint for deletion instead of DELETE
-                  const idsToDelete = selectedIds.map(id => Number(id));
+                  const idsToDelete = deleteIds.map(id => Number(id));
                   console.log('Sending delete request with IDs:', idsToDelete);
 
                   const res = await fetch(`${API_BASE_URL}/api/batches/bulk-delete`, {
@@ -601,7 +603,7 @@ const BatchesPage = () => {
                     else if (result.deletedCount > 0) {
                       toast({
                         title: "Batches Deleted",
-                        description: `${result.deletedCount} of ${selectedIds.length} batch(es) deleted successfully.`
+                        description: `${result.deletedCount} of ${deleteIds.length} batch(es) deleted successfully.`
                       });
                       setIsDeleteConfirmOpen(false);
                       clearSelection();

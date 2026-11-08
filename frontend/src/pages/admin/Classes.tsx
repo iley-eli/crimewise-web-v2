@@ -70,6 +70,7 @@ const ClassesPage = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc");
   const [sortBy, setSortBy] = useState<'name' | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -219,8 +220,9 @@ const ClassesPage = () => {
   };
 
   // Open edit modal and prefill selected rows
-  const openEditModal = () => {
-    const selected = classes.filter(c => selectedIds.includes(c.id));
+  const openEditModal = (ids?: number[]) => {
+    const idsToEdit = ids ?? selectedIds;
+    const selected = classes.filter(c => idsToEdit.includes(c.id));
     setEditRows(selected.map(c => ({ id: c.id, name: c.name || c.class, batch_id: c.batch_id?.toString() || "" })));
     setIsEditModalOpen(true);
   };
@@ -324,7 +326,7 @@ const ClassesPage = () => {
   const handleDeleteSubmit = async () => {
     try {
       // Using the new POST endpoint for deletion instead of DELETE
-      const idsToDelete = selectedIds.map(id => Number(id));
+      const idsToDelete = deleteIds.map(id => Number(id));
       console.log('Sending delete request with IDs:', idsToDelete);
 
       const res = await fetch(`${API_BASE_URL}/api/classes/bulk-delete`, {
@@ -356,6 +358,7 @@ const ClassesPage = () => {
             description: `${result.deletedCount} class(es) and ${result.deletedStudentCount || 0} student account(s) deleted successfully.`
           });
           setIsDeleteConfirmOpen(false);
+          setDeleteIds([]);
           clearSelection();
           handleReload();
         } else {
@@ -513,8 +516,8 @@ const ClassesPage = () => {
             <Button size="sm" variant="outline" onClick={handleReload}><RefreshCw className="mr-1 h-4 w-4" /> Reload</Button>
           </div>
             <div className="flex gap-2">
-            <Button size="sm" onClick={openEditModal} disabled={selectedIds.length === 0}><Edit2 className="mr-1 h-4 w-4" /> Edit</Button>
-            <Button size="sm" variant="destructive" onClick={() => setIsDeleteConfirmOpen(true)} disabled={selectedIds.length === 0}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button>
+            <Button size="sm" onClick={() => openEditModal()} disabled={selectedIds.length === 0}><Edit2 className="mr-1 h-4 w-4" /> Edit</Button>
+            <Button size="sm" variant="destructive" onClick={() => { setDeleteIds(selectedIds); setIsDeleteConfirmOpen(true); }} disabled={selectedIds.length === 0}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleCopy} disabled={selectedIds.length === 0}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
@@ -564,7 +567,7 @@ const ClassesPage = () => {
                     </Button>
                   </TableHead>
                   <TableHead className="hidden sm:table-cell">Batch</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="print:hidden">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -580,10 +583,10 @@ const ClassesPage = () => {
                       </TableCell>
                       <TableCell>{cls.name || cls.class}</TableCell>
                       <TableCell className="hidden sm:table-cell">{batches.find((b: any) => b.id === cls.batch_id)?.name || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell className="print:hidden">
                         <div className="flex gap-2">
-                                      <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([cls.id]); openEditModal(); }}><Edit2 className="h-4 w-4" /></Button>
-                                      <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([cls.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                                      <Button size="sm" variant="ghost" onClick={() => openEditModal([cls.id])}><Edit2 className="h-4 w-4" /></Button>
+                                      <Button size="sm" variant="ghost" onClick={() => { setDeleteIds([cls.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                                     </div>
                       </TableCell>
                     </TableRow>
@@ -674,7 +677,7 @@ const ClassesPage = () => {
                   Warning: This action cannot be undone.
                 </strong>
                 <span className="mt-2 block">
-                  You are about to permanently delete {selectedIds.length} selected class(es) and every student account assigned to them. Their accounts and access will be permanently removed. Exams will be kept but detached from the class.
+                  You are about to permanently delete {deleteIds.length} selected class(es) and every student account assigned to them. Their accounts and access will be permanently removed. Exams will be kept but detached from the class.
                 </span>
                 <strong className="mt-2 block">
                   Only continue if you are absolutely sure.

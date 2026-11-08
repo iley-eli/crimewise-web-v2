@@ -50,6 +50,7 @@ const InstructorsPage = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("asc");
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'instructorId' | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -254,8 +255,9 @@ const InstructorsPage = () => {
   };
 
   // Open edit modal and prefill selected rows
-  const openEditModal = () => {
-    const selected = instructors.filter(i => selectedIds.includes(i.id));
+  const openEditModal = (ids?: number[]) => {
+    const idsToEdit = ids ?? selectedIds;
+    const selected = instructors.filter(i => idsToEdit.includes(i.id));
     setEditRows(selected.map(i => ({
       id: i.id,
       name: i.name,
@@ -442,8 +444,8 @@ const InstructorsPage = () => {
             <Button size="sm" variant="outline" onClick={handleReload}><RefreshCw className="mr-1 h-4 w-4" /> Reload</Button>
           </div>
             <div className="flex gap-2">
-            <Button size="sm" onClick={openEditModal} disabled={selectedIds.length === 0}><Edit2 className="mr-1 h-4 w-4" /> Edit</Button>
-            <Button size="sm" variant="destructive" onClick={() => setIsDeleteConfirmOpen(true)} disabled={selectedIds.length === 0}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button>
+            <Button size="sm" onClick={() => openEditModal()} disabled={selectedIds.length === 0}><Edit2 className="mr-1 h-4 w-4" /> Edit</Button>
+            <Button size="sm" variant="destructive" onClick={() => { setDeleteIds(selectedIds); setIsDeleteConfirmOpen(true); }} disabled={selectedIds.length === 0}><Trash2 className="mr-1 h-4 w-4" /> Delete</Button>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleCopy} disabled={selectedIds.length === 0}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
@@ -483,7 +485,7 @@ const InstructorsPage = () => {
                   <SortableHeader column="instructorId" className="hidden sm:table-cell">Instructor ID</SortableHeader>
                   <SortableHeader column="name">Name</SortableHeader>
                   <SortableHeader column="email" className="hidden sm:table-cell">Email</SortableHeader>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="print:hidden">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -500,10 +502,10 @@ const InstructorsPage = () => {
                       <TableCell className="hidden sm:table-cell">{instructor.instructor_id}</TableCell>
                       <TableCell>{instructor.name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{instructor.email}</TableCell>
-                      <TableCell>
+                      <TableCell className="print:hidden">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([instructor.id]); openEditModal(); }}><Edit2 className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setSelectedIds([instructor.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => openEditModal([instructor.id])}><Edit2 className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setDeleteIds([instructor.id]); setIsDeleteConfirmOpen(true); }}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -898,14 +900,14 @@ const InstructorsPage = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete Instructor</DialogTitle>
-              <DialogDescription>Are you sure you want to delete {selectedIds.length} selected instructor(s)? This action cannot be undone.</DialogDescription>
+              <DialogDescription>Are you sure you want to delete {deleteIds.length} selected instructor(s)? This action cannot be undone.</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)}>Cancel</Button>
               <Button variant="destructive" onClick={async () => {
                 try {
                   // Using the new POST endpoint for deletion instead of DELETE
-                  const idsToDelete = selectedIds.map(id => Number(id));
+                  const idsToDelete = deleteIds.map(id => Number(id));
                   console.log('Sending delete request with IDs:', idsToDelete);
 
                   const res = await fetch(`${API_BASE_URL}/api/instructors/bulk-delete`, {
@@ -934,7 +936,7 @@ const InstructorsPage = () => {
                     else if (result.deletedCount > 0) {
                       toast({
                         title: "Instructors Deleted",
-                        description: `${result.deletedCount} of ${selectedIds.length} instructor(s) deleted successfully.`
+                        description: `${result.deletedCount} of ${deleteIds.length} instructor(s) deleted successfully.`
                       });
                       setIsDeleteConfirmOpen(false);
                       clearSelection();

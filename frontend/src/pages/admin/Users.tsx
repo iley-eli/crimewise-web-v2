@@ -89,6 +89,7 @@ const AdminUsersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleteIds, setDeleteIds] = useState<number[]>([]);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [sortBy, setSortBy] = useState<
     "name" | "email" | "role" | "status" | null
@@ -351,16 +352,14 @@ const AdminUsersPage = () => {
   };
 
   // Open edit modal and prefill selected user
-  const openEditModal = () => {
-    if (selectedIds.length !== 1) {
-      toast({
-        title: "Info",
-        description: "Please select exactly one user to edit.",
-      });
+  const openEditModal = (ids?: number[]) => {
+    const idsToEdit = ids ?? selectedIds;
+    if (idsToEdit.length !== 1) {
+      toast({ title: "Info", description: "Please select exactly one user to edit." });
       return;
     }
 
-    const selected = users.find((u) => u.id === selectedIds[0]);
+    const selected = users.find((u) => u.id === idsToEdit[0]);
     if (selected && canEditOrDelete(selected)) {
       setEditUser({ ...selected });
       setIsEditModalOpen(true);
@@ -420,14 +419,14 @@ const AdminUsersPage = () => {
 
   // Handle delete for multiple users
   const handleDeleteUsers = async () => {
-    if (selectedIds.length === 0) return;
+    if (deleteIds.length === 0) return;
 
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/users/bulk-delete`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ ids: selectedIds }),
+        body: JSON.stringify({ ids: deleteIds }),
       });
 
       if (res.ok) {
@@ -436,7 +435,7 @@ const AdminUsersPage = () => {
 
         // Check if we have detailed results from the backend
         if (result.deletedCount !== undefined) {
-          setUsers((users) => users.filter((u) => !selectedIds.includes(u.id)));
+          setUsers((users) => users.filter((u) => !deleteIds.includes(u.id)));
 
           // Provide more detailed feedback to user
           if (result.constraintErrors && result.constraintErrors.length > 0) {
@@ -453,10 +452,10 @@ const AdminUsersPage = () => {
           }
         } else {
           // Fallback for simple success message
-          setUsers((users) => users.filter((u) => !selectedIds.includes(u.id)));
+          setUsers((users) => users.filter((u) => !deleteIds.includes(u.id)));
           toast({
             title: "Users Deleted",
-            description: `${selectedIds.length} user(s) deleted successfully.`,
+            description: `${deleteIds.length} user(s) deleted successfully.`,
           });
         }
 
@@ -667,7 +666,7 @@ const AdminUsersPage = () => {
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  onClick={openEditModal}
+                  onClick={() => openEditModal()}
                   disabled={!canEditSelected()}
                 >
                   <Edit2 className="mr-1 h-4 w-4" /> Edit
@@ -833,7 +832,7 @@ const AdminUsersPage = () => {
                           )}
                         </Button>
                       </TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="print:hidden">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -870,16 +869,15 @@ const AdminUsersPage = () => {
                               {user.status}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
+                          <TableCell className="print:hidden">
+                            <div className="flex items-center justify-end gap-1">
                               {canEditOrDelete(user) ? (
                                 <>
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
-                                      setSelectedIds([user.id]);
-                                      openEditModal();
+                                      openEditModal([user.id]);
                                     }}
                                   >
                                     <Edit2 className="h-3 w-3" />
@@ -888,7 +886,7 @@ const AdminUsersPage = () => {
                                     size="sm"
                                     variant="destructive"
                                     onClick={() => {
-                                      setSelectedIds([user.id]);
+                                      setDeleteIds([user.id]);
                                       setIsDeleteConfirmOpen(true);
                                     }}
                                   >
@@ -1115,7 +1113,7 @@ const AdminUsersPage = () => {
             <DialogHeader>
               <DialogTitle>Delete User</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete {selectedIds.length} selected
+                Are you sure you want to delete {deleteIds.length} selected
                 user(s)? This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
