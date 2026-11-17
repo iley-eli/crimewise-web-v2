@@ -9,13 +9,13 @@
  * 
  * Key allocation:
  * - GEMINI_API_KEY_1 through GEMINI_API_KEY_6: AI grader keys (primary)
- * - GEMINI_API_KEY: Chatbot key (separate, not rotated by this manager)
+ * - GEMINI_ASSISTANT_API_KEY: Chatbot key (not managed or rotated here)
  * 
  * Usage:
  * - Set environment variables: GEMINI_API_KEY_1 through GEMINI_API_KEY_6
  * - Or set GRADER_API_KEYS as comma-separated list
  * - Call getNextApiKey() to get the next key in rotation
- * - This manager ONLY handles grader keys, not chatbot key
+ * - This manager ONLY handles grader keys, not the assistant key
  */
 
 class ApiKeyManager {

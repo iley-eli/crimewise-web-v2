@@ -20,15 +20,15 @@ const upload = multer({
   },
 });
 
-// Initialize Google AI with the API key for chatbot
+// Initialize Google AI with the dedicated AI assistant API key
 const genAI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
+  apiKey: process.env.GEMINI_ASSISTANT_API_KEY,
 });
 
 // Validate API key on startup
-if (!process.env.GEMINI_API_KEY) {
+if (!process.env.GEMINI_ASSISTANT_API_KEY) {
   console.warn(
-    "[CHATBOT] Warning: Using default API key. Please set GEMINI_API_KEY environment variable for production use."
+    "[CHATBOT] Warning: Please set GEMINI_ASSISTANT_API_KEY for production use."
   );
 }
 

@@ -35,7 +35,8 @@ openssl rand -base64 32
 
 #### Gemini API Keys
 ```
-GEMINI_API_KEY=<chatbot_key>
+GEMINI_ASSISTANT_API_KEY=<ai_assistant_key>
+GEMINI_API_KEY=<legacy_key_if_used>
 GEMINI_API_KEY_1=<grader_key_1>
 GEMINI_API_KEY_2=<grader_key_2>
 GEMINI_API_KEY_3=<grader_key_3>
@@ -45,7 +46,8 @@ GEMINI_API_KEY_6=<grader_key_6>
 ```
 
 **Explanation:**
-- `GEMINI_API_KEY`: Single key dedicated to chatbot (not rotated)
+- `GEMINI_ASSISTANT_API_KEY`: Dedicated key for chatbot and image analysis
+- `GEMINI_API_KEY`: Legacy key used by older grader code, if enabled
 - `GEMINI_API_KEY_1` through `GEMINI_API_KEY_6`: AI grader keys with round-robin rotation
   - **Rate limits per key:** 10 RPM, 250 RPD
   - **Total capacity:** 6 keys × 8 RPM = 48 RPM (safely below 60 RPM limit)
@@ -116,7 +118,7 @@ The frontend uses relative path `/api` which automatically routes to the backend
    ```
    DB_URL=...
    JWT_SECRET=...
-   GEMINI_API_KEY=...
+   GEMINI_ASSISTANT_API_KEY=...
    GEMINI_API_KEY_1=...
    # etc.
    ```
