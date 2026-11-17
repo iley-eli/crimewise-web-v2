@@ -101,7 +101,7 @@ router.post("/message", async (req, res) => {
 
     // Generate content with conversation history using the correct API
     const response = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: conversationHistory,
       config: {
         temperature: 0.4, // Balanced temperature for helpful but consistent responses
@@ -200,7 +200,7 @@ router.post("/analyze-image", upload.single("image"), async (req, res) => {
     // Generate content with image using the correct API
     console.log("[CHATBOT][ANALYZE-IMAGE] Sending to AI for analysis");
     const response = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: [
         analysisPrompt,
         {
