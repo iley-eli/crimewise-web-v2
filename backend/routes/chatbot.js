@@ -24,6 +24,7 @@ const upload = multer({
 const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_ASSISTANT_API_KEY,
 });
+const assistantModel = process.env.GEMINI_ASSISTANT_MODEL || "gemini-3.6-flash";
 
 // Validate API key on startup
 if (!process.env.GEMINI_ASSISTANT_API_KEY) {
@@ -139,7 +140,7 @@ router.post("/message", async (req, res) => {
 
     // Generate content with conversation history using the correct API
     const response = await generateGeminiContent({
-      model: "gemini-3.8-flash",
+      model: assistantModel,
       contents: conversationHistory,
       config: {
         temperature: 0.4, // Balanced temperature for helpful but consistent responses
@@ -238,7 +239,7 @@ router.post("/analyze-image", upload.single("image"), async (req, res) => {
     // Generate content with image using the correct API
     console.log("[CHATBOT][ANALYZE-IMAGE] Sending to AI for analysis");
     const response = await generateGeminiContent({
-      model: "gemini-3.8-flash",
+      model: assistantModel,
       contents: [
         analysisPrompt,
         {
