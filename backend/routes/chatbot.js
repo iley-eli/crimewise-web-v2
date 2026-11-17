@@ -32,6 +32,44 @@ if (!process.env.GEMINI_ASSISTANT_API_KEY) {
   );
 }
 
+const isTransientGeminiError = (error) => {
+  const errorText = error instanceof Error ? error.message : String(error);
+  const transientStatuses = [
+    "DEADLINE_EXCEEDED",
+    "INTERNAL",
+    "RESOURCE_EXHAUSTED",
+    "UNAVAILABLE",
+  ];
+
+  return (
+    [429, 500, 502, 503, 504].includes(Number(error?.code)) ||
+    transientStatuses.includes(error?.status) ||
+    /\b(429|500|502|503|504)\b|DEADLINE_EXCEEDED|INTERNAL|RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(
+      errorText
+    )
+  );
+};
+
+const generateGeminiContent = async (request) => {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await genAI.models.generateContent(request);
+    } catch (error) {
+      if (attempt === maxAttempts || !isTransientGeminiError(error)) {
+        throw error;
+      }
+
+      const delayMs = 1000 * 2 ** (attempt - 1);
+      console.warn(
+        `[CHATBOT] Gemini temporarily unavailable; retrying in ${delayMs}ms (${attempt + 1}/${maxAttempts})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+};
+
 // System prompt for forensic handwriting analysis
 const SYSTEM_PROMPT = `You are a forensic handwriting analysis expert assistant for the CrimeWise examination system. You ONLY respond to questions related to:
 - Forensic science and forensic handwriting analysis
@@ -100,7 +138,7 @@ router.post("/message", async (req, res) => {
     });
 
     // Generate content with conversation history using the correct API
-    const response = await genAI.models.generateContent({
+    const response = await generateGeminiContent({
       model: "gemini-3.8-flash",
       contents: conversationHistory,
       config: {
@@ -199,7 +237,7 @@ router.post("/analyze-image", upload.single("image"), async (req, res) => {
 
     // Generate content with image using the correct API
     console.log("[CHATBOT][ANALYZE-IMAGE] Sending to AI for analysis");
-    const response = await genAI.models.generateContent({
+    const response = await generateGeminiContent({
       model: "gemini-3.8-flash",
       contents: [
         analysisPrompt,
